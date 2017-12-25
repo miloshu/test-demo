@@ -1,10 +1,663 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<title>Document</title>
-</head>
-<body>
-	
-</body>
-</html>
+<template>
+<div class="page-log">
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">职位列表</h3>
+      <div class="add-btn" @click="handleAddItem()"><i class="el-icon-plus"></i>创建新职位</div>
+    </div>
+    <div class="panel-body">
+      <el-form class="formBgc" :model="searchParma" :label-width="queryWidth" @keyup.enter.native="handleSearch(1)">
+        <el-row :gutter="20" type="flex" justify="space-between" align="middle">
+          <el-col :md="4">
+            <el-form-item>
+              <el-input placeholder="请输入职位名称" v-model="searchParma.jobName" class="input-text"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4">
+            <el-form-item>
+              <el-select v-model="searchParma.deportment" placeholder="请选择职位职能类型" class="w-100 input-text">
+                <el-option
+                  v-for="item in deportmentList"
+                  :key="item.code"
+                  :label="item.enumShortNote"
+                  :value="item.enumLongNote">
+                </el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4">
+            <el-form-item>
+              <el-select placeholder="请选择职位招聘类型" clearable v-model="searchParma.region" class="w-100 input-text">
+                <el-option v-for="item in preRegionList" :label="item" :value="item" :key="item"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4">
+            <el-form-item>
+              <el-select placeholder="请选择职位招聘渠道" clearable v-model="searchParma.adress" class="w-100 input-text">
+                <el-option v-for="item in preAddressList" :label="item" :value="item" :key="item"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4">
+            <el-form-item>
+              <el-select v-model="searchParma.used" placeholder="请选择职位状态" class="w-100 input-text">
+                <el-option :label="$t('all')" value="A"></el-option>
+                <el-option :label="$t('used')" value="Y"></el-option>
+                <el-option :label="$t('useless')" value="W"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :md="4" class="f_right">
+            <el-form-item :label-width="'0px'">
+              <!-- 重置，模糊搜索 -->
+              <el-button native-type="reset" icon="delete2" :autofocus="true">清空</el-button>
+              <!-- <el-button native-type="reset" icon="delete2" autofocus="true" @click="clearAllContent">清空</el-button> -->
+              <el-button type="primary" icon="search" @click="handleSearch(1)">{{$t('search')}}</el-button>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div class="obligeeBtn">
+        <el-button type="text">禁用</el-button>
+        <el-button type="text">启用</el-button>
+      </div>
+      <el-table :data="tableData" ref="multipleTable" border class="w-100" span="12" v-loading.body="loading.searching">
+        <el-table-column
+          type="selection"
+          min-width="50">
+        </el-table-column>
+        <el-table-column prop="jobId" :show-overflow-tooltip="true" label="职位ID" min-width="50"></el-table-column>
+        <el-table-column prop="jobTitle" :show-overflow-tooltip="true" :label="$t('job_title')" min-width="130">
+            <template scope="scope">
+              <el-button class="position-title" @click="dialogPositionVisible = true">{{scope.row.jobName}}</el-button>
+              <!-- <el-button class="position-title" @click="showPositionDetail(scope.row.id)">{{scope.row.jobName}}</el-button> -->
+            </template>
+          </el-table-column>
+        <el-table-column prop="deportment" show-overflow-tooltip label="职位职能类型" min-width="86"></el-table-column>
+        <el-table-column prop="region" show-overflow-tooltip label="职位招聘类型" min-width="86"></el-table-column>
+        <el-table-column prop="adress" show-overflow-tooltip label="职位招聘渠道" min-width="86"></el-table-column>
+        <el-table-column prop="used" label="职位状态" min-width="86">
+        </el-table-column>
+        <el-table-column prop="updateUser" show-overflow-tooltip :label="$t('operator')" min-width="86"></el-table-column>
+        <el-table-column prop="updateTime" label="创建时间" min-width="180px">
+          <template scope="scope">
+            {{scope.row.updateTime?scope.row.updateTime:'' | dateConvert}}
+          </template>
+        </el-table-column>
+        
+        <!--<el-table-column :label="$t('operate')">
+          <template scope="scope">
+            <el-button type="primary" icon="edit" size="small" v-on:click="editInfo(scope.row)">{{$t('edit')}}</el-button>
+            <el-button type="danger" icon="delete" size="small" v-on:click="deleteJob(scope.row)">{{$t('delete')}}</el-button>
+            <el-button v-text="btnText" :class="{'btnBgc': !isShow}" @click="showToggle" size="small" v-show="obligeeBol">操作</el-button>
+          </template>
+        </el-table-column> -->
+
+      <el-table-column label="编辑" min-width="50">
+          <template scope="scope">
+            <el-button type="primary" icon="edit" size="small" v-on:click="editInfo(scope.row)">{{$t('edit')}}</el-button>
+          </template>
+        </el-table-column>
+      <el-table-column label="复制" min-width="50">
+          <template scope="scope">
+            <el-button class="el-icon-document" size="small" @click="copyInfo(scope.row)" v-show="copyBol">复制</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="预览" min-width="50">
+          <template scope="scope">
+            <el-button size="small" @click="dialogFormVisible = true">预览</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" min-width="50">
+          <template scope="scope">
+            <el-switch @click="change(scope.row)"
+              v-model="value1"
+              on-color="#13ce66"
+              off-color="#ff4949"
+              on-text="" off-text=""
+              min-width="46" v-show="obligeeBol">
+            </el-switch>
+          </template>
+        </el-table-column>
+
+      </el-table>
+      <div class="fay-page">
+        <div class="block">
+          <el-pagination
+            @current-change="handleSearch"
+            :current-page.sync="searchParma.currentPage"
+            :page-size="searchParma.pageSize"
+            layout="total, prev, pager, next, jumper"
+            :total="searchParma.totalCount">
+          </el-pagination>
+        </div>
+      </div>
+      <!-- 编辑页面 -->
+      <el-dialog size="tiny" title="职位属性配置" :visible.sync="addFormVisible" :before-close="resetRules">
+        <el-form :model="addForm" :label-width="formLabelWidth" :rules="rules" ref="addForm">
+          <el-form-item label="阶段名称" prop="jobName">
+            <el-input v-if="dialogTitle == 'add'" v-model="addForm.jobName" auto-complete="off" placeholder="请输入职位名称"></el-input>
+            <el-input v-if="dialogTitle == 'edit'" v-model="addForm.jobName" :disabled="true"></el-input>
+          </el-form-item>
+          <el-form-item :label="`${$t('region')}:`" prop="regionInfo">
+            <el-input v-if="dialogTitle == 'edit'" v-model="addForm.regionDisplay" :disabled="true"></el-input>
+            <el-select v-if="dialogTitle == 'add'" v-model="addForm.regionInfo" :placeholder="$t('select')" multiple class="w-100">
+              <el-option
+                v-for="item in regionList"
+                :key="item.id"
+                :label="`${item.enumShortNote},${item.enumLongNote}`"
+                :value="`${item.enumShortNote}&${item.enumLongNote}`">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="`${$t('department')}:`" prop="deportment">
+            <el-select v-model="addForm.deportment" :placeholder="$t('select')" class="w-100">
+              <el-option
+                v-for="item in deportmentList"
+                :key="item.code"
+                :label="item.enumShortNote"
+                :value="item.enumLongNote">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="`${$t('job_desc')}:`">
+            <el-input type="textarea" :autosize="{ minRows: 3 }" v-model="addForm.description" :placeholder="$t('job_tip')" auto-complete="off"></el-input>
+            <span v-if="dialogTitle == 'edit'" class="font-12">{{$t('enter_tip')}}</span>
+          </el-form-item>
+          <el-form-item :label="`${$t('responsibilities')}:`">
+            <el-input  type="textarea" :autosize="{ minRows: 3 }" v-model="addForm.responsibilities" :placeholder="$t('response_tip')" auto-complete="off"></el-input>
+            <span v-if="dialogTitle == 'edit'" class="font-12">{{$t('enter_tip')}}</span>
+          </el-form-item>
+          <el-form-item :label="`${$t('requirement')}:`">
+            <el-input  type="textarea" :autosize="{ minRows: 3 }" v-model="addForm.requirements" :placeholder="$t('require_tip')" auto-complete="off"></el-input>
+            <span v-if="dialogTitle == 'edit'" class="font-12">{{$t('enter_tip')}}</span>
+          </el-form-item>
+          <el-form-item :label="`${$t('extra_bonus')}:`">
+            <el-input  type="textarea" :autosize="{ minRows: 3 }" v-model="addForm.preferred" :placeholder="$t('bonus_tip')" auto-complete="off"></el-input>
+            <span v-if="dialogTitle == 'edit'" class="font-12">{{$t('enter_tip')}}</span>
+          </el-form-item>
+          <el-form-item :label="`${$t('others')}:`">
+            <el-input  type="textarea" :autosize="{ minRows: 3 }" v-model="addForm.richText" :placeholder="$t('other_tip')" auto-complete="off"></el-input>
+            <span v-if="dialogTitle == 'edit'" class="font-12">{{$t('enter_tip')}}</span>
+          </el-form-item>
+          <el-form-item v-if="dialogTitle == 'edit'" :label="`${$t('status')}:`">
+            <el-select v-model="addForm.used" class="w-100">
+              <el-option :label="$t('used')" value="Y"></el-option>
+              <el-option :label="$t('useless')" value="W"></el-option>
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="hideDialog">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="updateInfo(addForm)">{{$t('confirm')}}</el-button>
+        </div>
+      </el-dialog>
+
+      <!-- 职位属性详情页面 -->
+      <el-dialog size="tiny" title="职位属性详情" :visible.sync="dialogPositionVisible" min-width="500">
+        <el-row>
+          <span class="cell">*阶段名称：高级工程师</span>
+          <span class="cell">*职位状态：未使用</span>
+        </el-row>
+        <el-row>
+          <span class="cell">*阶段名称：高级工程师</span>
+          <span class="cell">*职位状态：未使用</span>
+        </el-row>
+        <el-row>
+          <span class="cell">*阶段名称：高级工程师</span>
+          <span class="cell">*职位状态：未使用</span>
+        </el-row>
+        <el-row>
+          <el-col :span="6">职位职责:</el-col>
+          <el-col :span="18">
+            <ol>
+              <li>就开会就开会时卡丝的阿斯顿爱上爱u额外家就开会就开会时卡丝的阿斯顿爱上爱u额外家</li>
+            </ol>
+          </el-col>
+        </el-row>
+      </el-dialog>
+
+      <!-- 预览页面 -->
+      <el-dialog size="tiny" :title="positionDialog.title" :visible.sync="dialogFormVisible" min-width="500">
+        <section class="section">
+          <h2 class="job-wrap">新官网测试</h2>
+          <span class="cell">职位类别：财务类</span>
+          <span class="cell">工作城市：深圳市</span>
+          <span class="cell">操作时间：2017-12-22</span>
+        </section>
+        <section class="section">
+          <h3 class="desc-title">工作职责</h3>
+          <ol>
+            <li>负责nlp技术</li>
+            <li>负责nlp技术</li>
+            <li>负责nlp技术</li>
+          </ol>
+        </section>
+        <section class="section">
+          <h3 class="desc-title">任职要求</h3>
+          <ol>
+            <li>计算机数学等相关专业</li>
+            <li>计算机数学等相关专业</li>
+            <li>计算机数学等相关专业</li>
+          </ol>
+        </section>
+        <!-- <div slot="footer" class="dialog-footer">
+          <el-button @click="hideDialog">{{$t('cancel')}}</el-button>
+          <el-button type="primary" @click="updateInfo(addForm)">{{$t('confirm')}}</el-button>
+        </div> -->
+      </el-dialog>
+
+
+    </div>
+  </div>
+</div>
+</template>
+<script>
+import { $job } from '../../pages'
+export default {
+  data () {
+    return {
+      tableData: [],
+      value1: true,
+      btnText: '禁止',
+      isShow: true,
+      checked: true, // 多选框
+      copyBol: true,  // 控制权限
+      obligeeBol: true,  // 控制权限
+      dialogFormVisible: false,
+      dialogPositionVisible: false,
+      searchParma: {
+        jobName: '',
+        deportment: '',
+        used: '',
+        region: '',
+        adress: '',
+        currentPage: 1,
+        pageSize: 20,
+        totalCount: 0
+      },
+      queryWidth: '0px',
+      addForm: {
+        jobName: '',
+        regionInfo: '',
+        region: '',
+        adress: '',
+        deportment: ''
+      },
+      deportmentList: [],
+      regionList: [],
+      preRegionList: [],
+      preAddressList: [],
+      addFormVisible: false,
+      formLabelWidth: '110px',
+      dialogTitle: '',
+      loading: {
+        searching: false
+      },
+      rules: {
+        jobName: [
+          {validator: this.verifyJob, message: '', trigger: 'blur'}
+        ],
+        regionInfo: [
+          {validator: this.verifyRegion, message: '', trigger: 'change'}
+        ],
+        deportment: [
+          {validator: this.verifyDepartment, message: '', trigger: 'change'}
+        ]
+      },
+      positionDialog: {
+        show: false,
+        title: '职位详情预览',
+        jobName: '',
+        description: '',
+        adress: '',
+        region: '',
+        responsibilities: '',
+        requirements: '',
+        richText: ''
+      }
+    }
+  },
+  components: {
+  },
+  created () {
+    this.queryEnumnote('regions')
+    this.queryEnumnote('departments')
+  },
+  mounted () {
+    this.handleSearch(1)
+  },
+  watch: {
+    'searchParma.region' (curVal, oldVal) {
+      this.preAddressList = []
+      this.searchParma.adress = ''
+      this.regionList.forEach(item => {
+        if (item.enumShortNote === curVal) this.preAddressList.push(item.enumLongNote)
+      })
+    }
+  },
+  methods: {
+    // 清空
+    // clearAllContent () {
+    //   this.jobName = ''
+    //   this.deportment = ''
+    //   this.used = ''
+    //   this.region = ''
+    //   this.adress = ''
+    // },
+    // 禁用/启用
+    // showToggle () {
+    //   this.isShow = !this.isShow
+    //   if (this.isShow) {
+    //     this.btnText = '禁止'
+    //   } else {
+    //     this.btnText = '启用'
+    //   }
+    // },
+    // 复制
+    copyInfo (item) {
+      let obj = JSON.parse(JSON.stringify(item))
+      var str = obj.jobName
+      var ind = str.search(/副本/gi)
+      if (ind === -1) {
+        obj.jobName = obj.jobName + '-副本'
+        this.tableData.unshift(obj)
+        this.$message({
+          showClose: true,
+          message: '复制成功！',
+          type: 'success'
+        })
+      } else {
+        this.$message({
+          showClose: true,
+          message: '复制失败！',
+          type: 'error'
+        })
+      }
+    },
+    handleSearch (val) {
+      if (val != null) {
+        if (val === 1 && this.searchParma.totalCount !== 0 && this.searchParma.currentPage !== 1) {
+          this.searchParma.totalCount = 0
+          return
+        }
+        this.searchParma.currentPage = val
+      }
+      this.loading.searching = true
+      return $job.overSeasJobs.getAllOverSeasJobs(this.searchParma).then((result) => {
+        console.log(result)
+        this.loading.searching = false
+        if (result.data.datas.length >= 1) {
+          this.tableData = result.data.datas
+          this.searchParma.totalCount = result.data.totalCount
+        } else {
+          this.tableData = []
+          this.searchParma.totalCount = 0
+        }
+      }).catch(err => {
+        this.$message.error(err.toString())
+      })
+    },
+    handleAddItem () {
+      this.dialogTitle = 'add'
+      this.addForm = {
+        jobId: '',
+        jobName: '',
+        description: '',
+        responsibilities: '',
+        requirements: '',
+        preferred: '',
+        richText: '',
+        deportment: null,
+        regionInfo: [],
+        region: [],
+        adress: [],
+        used: '',
+        language: 'en',
+        type: 'add',
+        id: 0
+      }
+      this.addFormVisible = true
+      this.$nextTick(_ => {
+        this.$refs['addForm'].resetFields()
+      })
+    },
+    editInfo (obj) {
+      obj.regionInfo = [`${obj.region}&${obj.adress}`]
+      obj.regionDisplay = `${obj.adress},${obj.region}`
+      this.addForm = JSON.parse(JSON.stringify(obj))
+      this.dialogTitle = 'edit'
+      this.addForm.type = 'edit'
+      this.addForm.id = obj.id
+      this.addFormVisible = true
+    },
+    hideDialog () {
+      this.$refs['addForm'].resetFields()
+      this.addFormVisible = false
+    },
+    deleteJob (obj) {
+      this.$confirm(`${this.$t('confirm_tip')}`, `${this.$t('tips')}`, {
+        confirmButtonText: `${this.$t('confirm')}`,
+        cancelButtonText: `${this.$t('cancel')}`,
+        type: 'warning'
+      }).then(() => {
+        return $job.overSeasJobs.deleteJob(obj.id).then(result => {
+          this.$message({
+            message: `${this.$t('success')}`,
+            type: 'success'
+          })
+          this.handleSearch(this.searchParma.currentPage)
+        }).catch(err => {
+          this.$message.error(err.toString())
+        })
+      }).catch(() => {
+      })
+    },
+    queryEnumnote (obj) {
+      $job.overSeasJobs.queryEnumnote(obj).then((result) => {
+        if (result.success) {
+          if (obj === 'departments') {
+            this.deportmentList = result.data
+          } else if (obj === 'regions') {
+            this.regionList = result.data
+            this.preRegionList = this.formatRegionList(result.data)
+          }
+        } else {
+          this.deportmentList = []
+        }
+      }).catch(err => {
+        this.deportmentList = []
+        this.$message.error(err.toString())
+      })
+    },
+    updateInfo (obj) {
+      this.$refs['addForm'].validate((valid) => {
+        if (valid) {
+          this.addForm.region = []
+          this.addForm.adress = []
+          this.addForm.regionInfo.forEach(item => {
+            this.addForm.region.push(item.split('&')[0])
+            this.addForm.adress.push(item.split('&')[1])
+          })
+          this.addForm.region = this.addForm.region.join('&')
+          this.addForm.adress = this.addForm.adress.join('&')
+          return $job.overSeasJobs.getJobID({
+            jobName: this.addForm.jobName,
+            adress: this.addForm.adress,
+            region: this.addForm.region
+          }).then((result) => {
+            if (this.dialogTitle === 'add') {
+              this.addForm.jobId = result.data.join('&')
+            }
+            return $job.overSeasJobs.updateJobReport(obj).then((result) => {
+              if (result.success) {
+                let msg = this.dialogTitle === 'add' ? this.$t('add_success') : this.$t('edit_success')
+                this.$message({
+                  message: msg,
+                  type: 'success'
+                })
+                this.handleSearch(1)
+                this.addFormVisible = false
+              } else {
+                this.$message({
+                  message: this.$t('failed'),
+                  type: 'error'
+                })
+              }
+            }).catch(err => {
+              this.$message.error(err.toString())
+            })
+          }).catch(err => {
+            this.$message.error(err.toString())
+          })
+        }
+      })
+    },
+    changeSelect (item) {
+      for (let index in this.regionList) {
+        if (item === this.regionList[index].enumLongNote) {
+          this.addForm.region = this.regionList[index].enumShortNote
+        }
+      }
+      if (this.addForm.type === 'add') {
+        this.getJobID()
+      }
+    },
+    getJobID () {
+      if (!this.addForm.jobName || !this.addForm.adress || !this.addForm.region) {
+        return
+      }
+      let obj = {
+        jobName: this.addForm.jobName,
+        adress: this.addForm.adress,
+        region: this.addForm.region
+      }
+      return $job.overSeasJobs.getJobID(obj).then((result) => {
+        this.addForm.jobId = result.data
+      }).catch(err => {
+        this.$message.error(err.toString())
+      })
+    },
+    showPositionDetail (jobId) {
+      return $job.overSeasJobs.queryJobDetail(jobId).then((result) => {
+        if (result.success) {
+          this.positionDialog.show = true
+          this.positionDialog.jobName = result.data.jobName
+          this.positionDialog.description = result.data.description
+          this.positionDialog.adress = result.data.adress
+          this.positionDialog.region = result.data.region
+          this.positionDialog.responsibilities = result.data.responsibilities ? result.data.responsibilities.split('\n') : []
+          this.positionDialog.requirements = result.data.requirements ? result.data.requirements.split('\n') : []
+          this.positionDialog.richText = result.data.richText
+        }
+      }).catch((err) => {
+        this.$message.error(err.toString())
+      })
+    },
+    resetRules () {
+      this.$refs['addForm'].resetFields()
+      this.addFormVisible = false
+    },
+    formatRegionList (arr) {
+      const s = new Set()
+      arr.forEach(x => s.add(x.enumShortNote))
+      return Array.from(s)
+    },
+    verifyJob (rules, value, callback) {
+      if (!value) callback(new Error(this.$t('job_require')))
+      callback()
+    },
+    verifyRegion (rules, value, callback) {
+      if (!value || value.length === 0) callback(new Error(this.$t('region_require')))
+      callback()
+    },
+    verifyDepartment (rules, value, callback) {
+      if (!value) callback(new Error(this.$t('department_require')))
+      callback()
+    }
+  }
+}
+</script>
+<style lang="scss" scoped>
+  .panel-default {
+    background: #e5e9f2;
+  }
+  //.w-100 {
+  //   text-align: center;
+  //}
+  .position-title{
+    border: none;
+      cursor: pointer;
+      color: #44a8F2;
+      background-color: transparent;
+      padding: 0;
+      &:hover{
+        background-color: transparent;
+      }
+  }
+  .section{
+    .desc-title{
+      font-weight: normal;
+      margin: 25px auto 10px;
+    }
+    p{
+      line-height: 1.8;
+    }
+  }
+  .job-wrap{
+    font-weight: 400;
+    margin-top: 0;
+    color: #707473;
+  }
+  span.cell{
+    margin-right: 20px;
+  }
+  .el-form-item {
+    margin-bottom: 0;
+  }
+  .font-12{
+    font-size: 12px;
+  }
+  .panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 0 none;
+  }
+  .add-btn {
+    margin-right: 15px;
+    color: #20a0ff;
+    cursor: pointer;
+  }
+ .el-icon-plus {
+   padding-right: 5px;
+   margin-right: 5px;
+ }
+ .obligeeBtn {
+   margin: 10px 0;
+   float: right;
+   padding-right: 18px;
+   .el-button {
+     color: #666;
+   }
+ }
+// .btnBgc {
+//   color: #fff;
+//   background: #20a0ff;
+// }
+.formBgc {
+  padding: 15px;
+  background: #fff;
+}
+.f_right {
+  display: flex;
+  justify-content: flex-end;
+}
+section > ol {
+  padding: 0 18px;
+}
+section span, section > ol {
+  color: #999;
+}
+</style>
